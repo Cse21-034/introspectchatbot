@@ -1,0 +1,245 @@
+import { useState, useCallback, useRef } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { InfoSidebar } from "@/components/InfoSidebar";
+import { VoiceAvatar } from "@/components/VoiceAvatar";
+import { VoiceControls } from "@/components/VoiceControls";
+import { ChatInterface } from "@/components/ChatInterface";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import type { ChatMessage, VoiceStatus, ChatResponse, TranscriptionResponse } from "@shared/schema";
+import { Menu, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+export default function Home() {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("idle");
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { toast } = useToast();
+
+  const chatMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const response = await apiRequest<ChatResponse>("POST", "/api/chat", {
+        message,
+        conversationHistory: messages.slice(-5),
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      const assistantMessage: ChatMessage = {
+        id: `${Date.now()}-assistant`,
+        role: "assistant",
+        content: data.response,
+        timestamp: new Date(),
+        audioUrl: data.audioUrl,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      if (data.audioUrl) {
+        playAudio(data.audioUrl);
+      } else {
+        setVoiceStatus("idle");
+      }
+    },
+    onError: (error) => {
+      setVoiceStatus("error");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to get response",
+      });
+      setTimeout(() => setVoiceStatus("idle"), 2000);
+    },
+  });
+
+  const transcribeMutation = useMutation({
+    mutationFn: async (audioBlob: Blob) => {
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "recording.webm");
+      
+      const response = await fetch("/api/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Transcription failed");
+      }
+
+      return response.json() as Promise<TranscriptionResponse>;
+    },
+    onSuccess: (data) => {
+      if (data.text.trim()) {
+        const userMessage: ChatMessage = {
+          id: `${Date.now()}-user`,
+          role: "user",
+          content: data.text,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, userMessage]);
+        chatMutation.mutate(data.text);
+      } else {
+        setVoiceStatus("error");
+        toast({
+          variant: "destructive",
+          title: "No speech detected",
+          description: "Please try speaking again",
+        });
+        setTimeout(() => setVoiceStatus("idle"), 2000);
+      }
+    },
+    onError: (error) => {
+      setVoiceStatus("error");
+      toast({
+        variant: "destructive",
+        title: "Transcription failed",
+        description: error instanceof Error ? error.message : "Failed to transcribe audio",
+      });
+      setTimeout(() => setVoiceStatus("idle"), 2000);
+    },
+  });
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        stream.getTracks().forEach((track) => track.stop());
+        
+        setVoiceStatus("processing");
+        transcribeMutation.mutate(audioBlob);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setVoiceStatus("listening");
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Microphone access denied",
+        description: "Please allow microphone access to use voice input",
+      });
+      setVoiceStatus("error");
+      setTimeout(() => setVoiceStatus("idle"), 2000);
+    }
+  }, [toast, transcribeMutation]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  }, [isRecording]);
+
+  const sendTextMessage = useCallback((text: string) => {
+    const userMessage: ChatMessage = {
+      id: `${Date.now()}-user`,
+      role: "user",
+      content: text,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    setVoiceStatus("processing");
+    chatMutation.mutate(text);
+  }, [chatMutation]);
+
+  const playAudio = useCallback((audioUrl: string) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+
+    audio.onloadeddata = () => {
+      setVoiceStatus("speaking");
+      audio.play().catch((error) => {
+        console.error("Audio playback failed:", error);
+        setVoiceStatus("idle");
+      });
+    };
+
+    audio.onended = () => {
+      setVoiceStatus("idle");
+    };
+
+    audio.onerror = () => {
+      console.error("Audio loading failed");
+      setVoiceStatus("idle");
+    };
+  }, []);
+
+  const handlePlayAudio = useCallback((audioUrl: string) => {
+    playAudio(audioUrl);
+  }, [playAudio]);
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-background" data-testid="page-home">
+      <InfoSidebar />
+
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border px-4 py-3 flex items-center justify-between">
+        <h1 className="text-lg font-bold font-heading text-sidebar-foreground">INTROSPECT</h1>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          data-testid="button-toggle-sidebar"
+        >
+          {isSidebarOpen ? <X /> : <Menu />}
+        </Button>
+      </div>
+
+      {isSidebarOpen && (
+        <div className="lg:hidden fixed inset-0 z-40 bg-background">
+          <div className="p-6 pt-20">
+            <div className="mb-6">
+              <p className="text-sm text-muted-foreground">
+                AI-Powered Malaria Diagnostics
+              </p>
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm"><strong>Fast:</strong> 1-5 second results</p>
+              <p className="text-sm"><strong>Accurate:</strong> AI-powered analysis</p>
+              <p className="text-sm"><strong>Accessible:</strong> Works offline</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 flex flex-col relative">
+        <div className="absolute top-4 right-4 lg:top-6 lg:right-6 z-10 mt-14 lg:mt-0">
+          <VoiceAvatar status={voiceStatus} />
+        </div>
+
+        <div className="flex-1 flex flex-col pt-24 lg:pt-0">
+          <ChatInterface
+            messages={messages}
+            isLoading={chatMutation.isPending || transcribeMutation.isPending}
+            onPlayAudio={handlePlayAudio}
+          />
+
+          <VoiceControls
+            status={voiceStatus}
+            onStartRecording={startRecording}
+            onStopRecording={stopRecording}
+            onSendText={sendTextMessage}
+            disabled={chatMutation.isPending || transcribeMutation.isPending}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

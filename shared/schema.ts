@@ -1,18 +1,39 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+// Chat message types
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+  audioUrl?: string;
+}
+
+export const chatMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().min(1, "Message cannot be empty"),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-});
+export type InsertChatMessage = z.infer<typeof chatMessageSchema>;
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+// Voice recording status
+export type VoiceStatus = "idle" | "listening" | "processing" | "speaking" | "error";
+
+// API request/response types
+export interface ChatRequest {
+  message: string;
+  conversationHistory?: ChatMessage[];
+}
+
+export interface ChatResponse {
+  response: string;
+  audioUrl?: string;
+}
+
+export interface TranscriptionRequest {
+  audio: File | Blob;
+}
+
+export interface TranscriptionResponse {
+  text: string;
+}
