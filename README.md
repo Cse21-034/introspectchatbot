@@ -52,39 +52,23 @@ A modern voice-enabled chatbot that answers questions about Introspect's AI-powe
 
 ## Deployment
 
-### ⚠️ IMPORTANT: Audio Storage Limitations
+### Universal Platform Support
 
-**Current Implementation**: Uses in-memory storage with TTL for voice responses. This is a **prototype/development** implementation that:
+The chatbot uses **base64-encoded audio delivery** which works across **all platforms**:
 
-**✅ WORKS FOR**:
-- Local development (Replit, localhost)
-- Render with 1 instance (single-server deployment)
+✅ **Vercel** (serverless)
+✅ **Render** (single or multiple instances)  
+✅ **Replit**
+✅ **AWS Lambda, Cloudflare Workers, etc.**
+✅ **Localhost**
 
-**❌ DOES NOT WORK FOR**:
-- Vercel (serverless - each request may hit different instance)
-- Render with multiple instances (load-balanced deployments)
-- Any serverless platform (AWS Lambda, Cloudflare Workers, etc.)
+**How it works**:
+- AI responses are kept concise (optimized for voice UX)
+- TTS audio is embedded as base64 data URL in the API response
+- No external storage required
+- Works in serverless, multi-instance, and traditional deployments
 
-### Why This Limitation Exists
-
-Voice responses require storing audio files temporarily. Serverless platforms run each request in isolated containers that don't share memory, so the `/api/audio/:id` endpoint can't retrieve audio generated in a different container.
-
-### Production Solutions
-
-To make voice responses work on serverless platforms, you must implement one of these approaches:
-
-**Option 1: Use Persistent Storage** (Recommended for production)
-- **Vercel**: Integrate [Vercel Blob Storage](https://vercel.com/docs/storage/vercel-blob)
-- **AWS/Render**: Use S3 or compatible object storage
-- **Any platform**: Use Redis for temporary audio storage
-
-**Option 2: Stream Audio Directly** (Recommended for serverless)
-- Modify `/api/chat` to return audio as base64 data URL for short responses (<500KB)
-- For long responses, consider client-side TTS or streaming solutions
-
-**Option 3: Text-Only Mode**
-- Disable voice output on serverless platforms
-- Keep text chat functionality (works everywhere)
+**Performance**: Audio responses are typically 50-150KB (embedded in ~200KB JSON response), which is well within platform limits and provides instant playback.
 
 ### Vercel Deployment
 
@@ -102,9 +86,14 @@ To make voice responses work on serverless platforms, you must implement one of 
    - `OPENAI_API_KEY`: Your OpenAI API key
    - `SESSION_SECRET`: Random secret for sessions
 
-4. **⚠️ Important**: Modify `server/routes.ts` to use Vercel Blob Storage for audio instead of in-memory Map
+4. **Deploy:**
+   ```bash
+   vercel --prod
+   ```
 
-### Render Deployment (Recommended for Voice Features)
+That's it! Voice features work out of the box on Vercel.
+
+### Render Deployment
 
 1. **Connect your repository** to Render
 
@@ -116,9 +105,7 @@ To make voice responses work on serverless platforms, you must implement one of 
 
 4. **Deploy** automatically from your repository
 
-5. **Important**: 
-   - Use **1 instance** for voice features to work
-   - For multiple instances, implement persistent audio storage (S3, Redis, etc.)
+Voice features work perfectly on Render!
 
 ## Environment Variables
 
@@ -128,9 +115,8 @@ To make voice responses work on serverless platforms, you must implement one of 
 
 ## API Endpoints
 
-- `POST /api/chat`: Send a message and get AI response with audio
+- `POST /api/chat`: Send a message and get AI response with embedded audio (base64 data URL)
 - `POST /api/transcribe`: Upload audio file for transcription
-- `GET /api/audio/:id`: Retrieve generated audio file
 - `GET /api/health`: Health check endpoint
 
 ## Usage

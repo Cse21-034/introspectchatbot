@@ -3,7 +3,6 @@ import { createServer, type Server } from "http";
 import multer from "multer";
 import { generateChatResponse, transcribeAudio, generateSpeech } from "./openai-client";
 import { z } from "zod";
-import { randomUUID } from "crypto";
 
 // Set up multer for handling file uploads
 const upload = multer({
@@ -26,35 +25,8 @@ const chatRequestSchema = z.object({
     .optional(),
 });
 
-// Audio storage with TTL for development/single-instance deployments
-// NOTE: For production serverless/multi-instance deployments (Vercel/Render),
-// replace this with persistent storage (Vercel Blob, S3, etc.)
-interface AudioEntry {
-  buffer: Buffer;
-  expiresAt: number;
-}
-
-const audioStore = new Map<string, AudioEntry>();
-
-// Clean up expired audio entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, entry] of audioStore.entries()) {
-    if (entry.expiresAt < now) {
-      audioStore.delete(id);
-    }
-  }
-}, 5 * 60 * 1000);
-
-// Helper to store audio with 1-hour TTL
-function storeAudio(buffer: Buffer): string {
-  const id = randomUUID();
-  audioStore.set(id, {
-    buffer,
-    expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour
-  });
-  return id;
-}
+// Note: Audio is returned as base64 data URLs for serverless compatibility
+// This works across all platforms (Vercel, Render, Replit, localhost)
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Chat endpoint - generates AI response using GPT-5 with Introspect knowledge
@@ -68,12 +40,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validated.conversationHistory || []
       );
 
-      // Generate audio for the response
+      // Generate audio for the response and return as base64 data URL
+      // This ensures compatibility with all platforms including serverless (Vercel)
       let audioUrl: string | undefined;
       try {
         const audioBuffer = await generateSpeech(responseText);
-        const audioId = storeAudio(audioBuffer);
-        audioUrl = `/api/audio/${audioId}`;
+        const base64Audio = audioBuffer.toString('base64');
+        audioUrl = `data:audio/mpeg;base64,${base64Audio}`;
       } catch (audioError) {
         console.error("TTS generation failed:", audioError);
         // Continue without audio if TTS fails
@@ -113,30 +86,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: error instanceof Error ? error.message : "Failed to transcribe audio" 
       });
     }
-  });
-
-  // Audio streaming endpoint - serves generated TTS audio
-  // NOTE: For production on Vercel/Render, replace with persistent storage
-  app.get("/api/audio/:id", (req, res) => {
-    const audioId = req.params.id;
-    const entry = audioStore.get(audioId);
-
-    if (!entry) {
-      return res.status(404).json({ error: "Audio not found or expired" });
-    }
-
-    // Check if expired
-    if (entry.expiresAt < Date.now()) {
-      audioStore.delete(audioId);
-      return res.status(404).json({ error: "Audio expired" });
-    }
-
-    res.set({
-      "Content-Type": "audio/mpeg",
-      "Content-Length": entry.buffer.length,
-      "Cache-Control": "public, max-age=3600",
-    });
-    res.send(entry.buffer);
   });
 
   // Health check endpoint

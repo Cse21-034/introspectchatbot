@@ -34,7 +34,7 @@ export async function generateChatResponse(
     const response = await openai.chat.completions.create({
       model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025
       messages,
-      max_completion_tokens: 800,
+      max_completion_tokens: 250, // Limit for concise responses and reliable audio delivery across all platforms
     });
 
     return response.choices[0].message.content || "I apologize, but I couldn't generate a response. Please try again.";
