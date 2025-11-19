@@ -1,20 +1,16 @@
 import { useState, useCallback, useRef } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { InfoSidebar } from "@/components/InfoSidebar";
+import { useMutation } from "@tanstack/react-query";
 import { VoiceAvatar } from "@/components/VoiceAvatar";
 import { VoiceControls } from "@/components/VoiceControls";
 import { ChatInterface } from "@/components/ChatInterface";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { ChatMessage, VoiceStatus, ChatResponse, TranscriptionResponse } from "@shared/schema";
-import { Menu, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("idle");
   const [isRecording, setIsRecording] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -187,58 +183,47 @@ export default function Home() {
   }, [playAudio]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background" data-testid="page-home">
-      <InfoSidebar />
-
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border px-4 py-3 flex items-center justify-between">
-        <h1 className="text-lg font-bold font-heading text-sidebar-foreground">INTROSPECT</h1>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          data-testid="button-toggle-sidebar"
-        >
-          {isSidebarOpen ? <X /> : <Menu />}
-        </Button>
+    <div className="flex flex-col h-screen bg-background" data-testid="page-home">
+      {/* Header with Logo */}
+      <div className="w-full bg-sidebar border-b border-sidebar-border px-6 py-4">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-2xl font-bold font-heading text-sidebar-foreground">
+            INTROSPECT
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            AI-Powered Malaria Diagnostics
+          </p>
+        </div>
       </div>
 
-      {isSidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 bg-background">
-          <div className="p-6 pt-20">
-            <div className="mb-6">
-              <p className="text-sm text-muted-foreground">
-                AI-Powered Malaria Diagnostics
-              </p>
-            </div>
-            <div className="space-y-3">
-              <p className="text-sm"><strong>Fast:</strong> 1-5 second results</p>
-              <p className="text-sm"><strong>Accurate:</strong> AI-powered analysis</p>
-              <p className="text-sm"><strong>Accessible:</strong> Works offline</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex-1 flex flex-col relative">
-        <div className="absolute top-4 right-4 lg:top-6 lg:right-6 z-10 mt-14 lg:mt-0">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+        {/* Avatar */}
+        <div className="mb-8">
           <VoiceAvatar status={voiceStatus} />
         </div>
 
-        <div className="flex-1 flex flex-col pt-24 lg:pt-0">
-          <ChatInterface
-            messages={messages}
-            isLoading={chatMutation.isPending || transcribeMutation.isPending}
-            onPlayAudio={handlePlayAudio}
-          />
+        {/* Chat Messages (if any) */}
+        {messages.length > 0 && (
+          <div className="w-full max-w-4xl mb-6 flex-1 overflow-y-auto">
+            <ChatInterface
+              messages={messages}
+              isLoading={chatMutation.isPending || transcribeMutation.isPending}
+              onPlayAudio={handlePlayAudio}
+            />
+          </div>
+        )}
+      </div>
 
-          <VoiceControls
-            status={voiceStatus}
-            onStartRecording={startRecording}
-            onStopRecording={stopRecording}
-            onSendText={sendTextMessage}
-            disabled={chatMutation.isPending || transcribeMutation.isPending}
-          />
-        </div>
+      {/* Input Controls - Fixed at Bottom */}
+      <div className="w-full">
+        <VoiceControls
+          status={voiceStatus}
+          onStartRecording={startRecording}
+          onStopRecording={stopRecording}
+          onSendText={sendTextMessage}
+          disabled={chatMutation.isPending || transcribeMutation.isPending}
+        />
       </div>
     </div>
   );
