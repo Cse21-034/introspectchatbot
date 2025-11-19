@@ -198,8 +198,8 @@ export default function Home() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-        {/* Avatar */}
-        <div className="mb-8">
+        {/* Avatar - Updated to be larger on lg screens */}
+        <div className="mb-8 lg:scale-150 transition-transform duration-300 origin-center">
           <VoiceAvatar status={voiceStatus} />
         </div>
 
