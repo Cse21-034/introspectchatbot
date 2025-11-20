@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { Microscope } from "lucide-react";
 import { VoiceAvatar } from "@/components/VoiceAvatar";
 import { VoiceControls } from "@/components/VoiceControls";
 import { ChatInterface } from "@/components/ChatInterface";
@@ -186,19 +187,25 @@ export default function Home() {
     <div className="flex flex-col h-screen bg-background" data-testid="page-home">
       {/* Header with Logo */}
       <div className="w-full bg-sidebar border-b border-sidebar-border px-6 py-4">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl font-bold font-heading text-sidebar-foreground">
-            INTROSPECT
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            AI-Powered Malaria Diagnostics
-          </p>
+        <div className="max-w-4xl mx-auto flex items-center gap-4">
+          {/* Logo Icon */}
+          <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+            <Microscope className="h-7 w-7 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold font-heading text-sidebar-foreground leading-none">
+              INTROSPECT
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              AI-Powered Malaria Diagnostics
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-        {/* Avatar - Updated to be much larger (approx 3-4x) on lg screens */}
+        {/* Avatar - Large scale (3x) on desktop screens */}
         <div className="mb-8 lg:my-24 lg:scale-[3] transition-transform duration-300 origin-center">
           <VoiceAvatar status={voiceStatus} />
         </div>
