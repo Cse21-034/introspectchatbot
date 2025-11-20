@@ -5,7 +5,7 @@ import { VoiceControls } from "@/components/VoiceControls";
 import { ChatInterface } from "@/components/ChatInterface";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Mic, MicOff } from "lucide-react"; // Import icons for the toggle
+import { Mic, MicOff } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import type { ChatMessage, VoiceStatus, ChatResponse, TranscriptionResponse } from "@shared/schema";
 
@@ -13,7 +13,7 @@ export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("idle");
   const [isRecording, setIsRecording] = useState(false);
-  const [isHandsFree, setIsHandsFree] = useState(false); // New state for Hands Free mode
+  const [isHandsFree, setIsHandsFree] = useState(false); 
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -24,7 +24,7 @@ export default function Home() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const hasSpokenRef = useRef(false); // Tracks if user actually said something
+  const hasSpokenRef = useRef(false); 
 
   const { toast } = useToast();
 
@@ -227,20 +227,6 @@ export default function Home() {
     }
   }, []);
 
-  const sendTextMessage = useCallback((text: string) => {
-    // Pause hands free loop for manual text
-    setIsHandsFree(false);
-    const userMessage: ChatMessage = {
-      id: `${Date.now()}-user`,
-      role: "user",
-      content: text,
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    setVoiceStatus("processing");
-    chatMutation.mutate(text);
-  }, [chatMutation]);
-
   const playAudio = useCallback((audioUrl: string) => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -351,15 +337,9 @@ export default function Home() {
         )}
       </div>
 
-      {/* Input Controls - Fixed at Bottom */}
+      {/* Visual Status Controls - Fixed at Bottom (Now purely visual) */}
       <div className="w-full">
-        <VoiceControls
-          status={voiceStatus}
-          onStartRecording={startRecording}
-          onStopRecording={stopRecording}
-          onSendText={sendTextMessage}
-          disabled={chatMutation.isPending || transcribeMutation.isPending}
-        />
+        <VoiceControls status={voiceStatus} />
       </div>
     </div>
   );
