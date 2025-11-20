@@ -291,7 +291,7 @@ export default function Home() {
             {/* Logo Image */}
             <div className="h-14 w-14 shrink-0">
               <img 
-                src="/logo.png" 
+                src="https://iili.io/f2F1wqx.png" 
                 alt="Introspect Logo" 
                 className="h-full w-full object-contain"
               />
